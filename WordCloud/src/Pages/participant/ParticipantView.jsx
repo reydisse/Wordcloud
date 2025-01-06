@@ -2,7 +2,16 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../../config/firebase";
-import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  arrayUnion,
+  addDoc,
+  serverTimestamp,
+  collection,
+  increment,
+} from "firebase/firestore";
 
 function ParticipantView() {
   const { sessionId } = useParams();
@@ -56,10 +65,25 @@ function ParticipantView() {
     setError(null);
 
     try {
+      // Get session reference
       const sessionRef = doc(db, "sessions", sessionId);
+
+      // Add response to subcollection
+      const responseRef = await addDoc(collection(sessionRef, "responses"), {
+        text: response.trim(),
+        createdAt: serverTimestamp(),
+        metadata: {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          language: navigator.language,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // Update response count in session document
       await updateDoc(sessionRef, {
-        responses: arrayUnion(response.trim()),
-        responseCount: (session.responseCount || 0) + 1,
+        responseCount: increment(1),
+        updatedAt: serverTimestamp(),
       });
 
       navigate("/join?success=true");
@@ -67,7 +91,6 @@ function ParticipantView() {
       console.error("Error submitting response:", err);
       setPreservedResponse(response);
       setShowToast(true);
-      setTimeout(() => setShowToast(false), 5000);
     } finally {
       setSubmitting(false);
     }

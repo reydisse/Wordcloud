@@ -51,18 +51,12 @@ function SessionSetup() {
   };
 
   const handleStartSession = async () => {
-    if (!user) {
-      setError("Please sign in to create a session");
-      navigate("/");
-      return;
-    }
-
     if (!question.trim()) {
       setError("Please enter a question");
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     setError(null);
 
     try {
@@ -70,20 +64,27 @@ function SessionSetup() {
       const sessionRef = await addDoc(collection(db, "sessions"), {
         question: question.trim(),
         userId: user.uid,
-        createdAt: serverTimestamp(),
         createdBy: user.displayName || user.email,
-        responses: 0,
-        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         code: generateSessionCode(),
+        isActive: true,
+        responseCount: 0,
+        metadata: {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+        },
       });
 
-      // Navigate to the session view with the new session ID
+      // Create the responses subcollection (optional, will be created automatically when first response is added)
+      // const responsesCollectionRef = collection(sessionRef, 'responses')
+
       navigate(`/dashboard/session/${sessionRef.id}`);
     } catch (err) {
       console.error("Error creating session:", err);
-      setError("Failed to create session. Please try again.");
+      setError("Failed to create session");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
