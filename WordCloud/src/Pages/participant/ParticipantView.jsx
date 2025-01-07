@@ -1,15 +1,13 @@
-// src/pages/participant/ParticipantView.jsx
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../../config/firebase";
 import {
   doc,
-  getDoc,
-  updateDoc,
-  arrayUnion,
-  addDoc,
-  serverTimestamp,
   collection,
+  addDoc,
+  updateDoc,
+  getDoc,
+  serverTimestamp,
   increment,
 } from "firebase/firestore";
 
@@ -22,6 +20,7 @@ function ParticipantView() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showToast, setShowToast] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [preservedResponse, setPreservedResponse] = useState("");
   const maxCharacters = 200;
 
@@ -55,6 +54,7 @@ function ParticipantView() {
     fetchSession();
   }, [sessionId, navigate]);
 
+  // In ParticipantView.jsx - where responses are submitted
   const handleSubmit = async () => {
     if (!response.trim()) {
       setError("Please enter your response");
@@ -65,13 +65,20 @@ function ParticipantView() {
     setError(null);
 
     try {
-      // Get session reference
-      const sessionRef = doc(db, "sessions", sessionId);
+      // Generate a unique participant ID if not exists
+      let participantId = localStorage.getItem("participantId");
+      if (!participantId) {
+        participantId = Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("participantId", participantId);
+      }
 
-      // Add response to subcollection
-      const responseRef = await addDoc(collection(sessionRef, "responses"), {
+      const sessionRef = doc(db, "sessions", sessionId);
+      const responsesCollectionRef = collection(sessionRef, "responses");
+
+      await addDoc(responsesCollectionRef, {
         text: response.trim(),
         createdAt: serverTimestamp(),
+        participantId: participantId, // Add participant ID to response
         metadata: {
           userAgent: navigator.userAgent,
           platform: navigator.platform,
@@ -80,13 +87,15 @@ function ParticipantView() {
         },
       });
 
-      // Update response count in session document
       await updateDoc(sessionRef, {
         responseCount: increment(1),
         updatedAt: serverTimestamp(),
       });
 
-      navigate("/join?success=true");
+      setShowSuccessToast(true);
+      setTimeout(() => {
+        navigate("/join");
+      }, 2000);
     } catch (err) {
       console.error("Error submitting response:", err);
       setPreservedResponse(response);
@@ -128,6 +137,24 @@ function ParticipantView() {
 
   return (
     <div className='min-h-screen bg-white p-4 relative'>
+      <style>
+        {`
+          @keyframes slideUp {
+            from {
+              transform: translateY(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          .success-toast {
+            animation: slideUp 0.3s ease-out forwards;
+          }
+        `}
+      </style>
+
       {/* Session Code Header */}
       <div className='flex justify-between items-center mb-8'>
         <span className='text-sm text-gray-500'>Session Code:</span>
@@ -203,6 +230,34 @@ function ParticipantView() {
         )}
       </button>
 
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <div className='fixed bottom-0 left-0 right-0 p-4 success-toast'>
+          <div className='max-w-md mx-auto'>
+            <div className='bg-green-50 border border-green-200 rounded-lg shadow-sm p-4 flex items-center justify-between'>
+              <div className='flex items-center gap-2'>
+                <svg
+                  className='w-5 h-5 text-green-500'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='2'
+                    d='M5 13l4 4L19 7'
+                  />
+                </svg>
+                <span className='text-green-700 font-medium'>
+                  Response submitted successfully!
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Failed Submission View */}
       {showToast && (
         <div className='fixed bottom-0 left-0 right-0 p-4'>
@@ -252,7 +307,7 @@ function ParticipantView() {
                     d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
                   />
                 </svg>
-                <span>Couldn&apos;t submit response</span>
+                <span>Couldn't submit response</span>
               </div>
               <button
                 onClick={() => setShowToast(false)}
