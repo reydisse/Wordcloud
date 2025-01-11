@@ -1,4 +1,4 @@
-// src/pages/SessionView.jsx - Part 1
+// src/pages/SessionView.jsx
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../config/firebase";
@@ -51,40 +51,62 @@ function SessionView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEndConfirmation, setShowEndConfirmation] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
+  const [responseFrequencies, setResponseFrequencies] = useState({});
 
   // Fullscreen handler
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-        setIsFullscreen(false);
+    try {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+          setIsFullscreen(false);
+        }
       }
+    } catch (err) {
+      console.error("Fullscreen API not supported:", err);
     }
   };
 
+  // Cleanup fullscreen on unmount
+  useEffect(() => {
+    return () => {
+      if (document.fullscreenElement) {
+        document
+          .exitFullscreen()
+          .catch((err) => console.error("Error exiting fullscreen:", err));
+      }
+    };
+  }, []);
+
+  // Function to calculate size based on frequency
+  const calculateSize = (frequency) => {
+    const baseSize = 16;
+    const increment = 4;
+    const maxSize = 48;
+    return Math.min(baseSize + frequency * increment, maxSize);
+  };
+
   // Generate word cloud styles
-  const generateWordCloudStyles = useCallback((text) => {
-    const fontSize = Math.floor(Math.random() * (32 - 16) + 16);
-    const opacity = Math.random() * (1 - 0.4) + 0.4;
+  const generateWordCloudStyles = useCallback((text, size, frequency) => {
+    const opacity = Math.min(0.4 + frequency * 0.1, 1);
     const top = Math.floor(Math.random() * 70) + 15;
     const left = Math.floor(Math.random() * 70) + 15;
-    const weight = Math.min(700, 400 + text.length * 10);
 
     return {
       position: "absolute",
       top: `${top}%`,
       left: `${left}%`,
-      fontSize: `${fontSize}px`,
+      fontSize: `${size}px`,
       opacity: opacity,
-      fontWeight: weight,
+      fontWeight: Math.min(400 + frequency * 100, 700),
       transform: `rotate(${Math.random() * 20 - 10}deg)`,
       transition: "all 0.5s ease-in-out",
       cursor: "default",
       textShadow: "1px 1px 2px rgba(0,0,0,0.1)",
-      zIndex: Math.floor(Math.random() * 10),
+      zIndex: Math.floor(frequency * 10),
     };
   }, []);
 
@@ -97,7 +119,6 @@ function SessionView() {
         endedAt: serverTimestamp(),
       });
 
-      // Start exit animation
       setTimeout(() => {
         navigate("/dashboard");
       }, 1500);
@@ -141,19 +162,35 @@ function SessionView() {
     const unsubscribe = onSnapshot(
       responsesQuery,
       (snapshot) => {
-        const responsesList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          style: generateWordCloudStyles(doc.data().text),
-          createdAt: doc.data().createdAt?.toDate(),
-        }));
+        // Calculate frequencies
+        const frequencies = {};
+        snapshot.docs.forEach((doc) => {
+          const text = doc.data().text.trim().toLowerCase();
+          frequencies[text] = (frequencies[text] || 0) + 1;
+        });
+
+        setResponseFrequencies(frequencies);
+
+        // Create unique responses with updated styles
+        const uniqueResponses = Object.entries(frequencies).map(
+          ([text, frequency]) => {
+            const size = calculateSize(frequency);
+            return {
+              id: text,
+              text: text,
+              frequency: frequency,
+              style: generateWordCloudStyles(text, size, frequency),
+            };
+          }
+        );
+
+        setResponses(uniqueResponses);
 
         // Track unique participant IDs
         const uniqueParticipants = new Set(
-          responsesList.map((response) => response.participantId)
+          snapshot.docs.map((doc) => doc.data().participantId)
         );
         setParticipants(uniqueParticipants);
-        setResponses(responsesList);
         setLoading(false);
       },
       (err) => {
@@ -166,7 +203,6 @@ function SessionView() {
     return () => unsubscribe();
   }, [id, generateWordCloudStyles]);
 
-  // Loading and error handlers
   if (loading) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-gray-50'>
@@ -202,6 +238,22 @@ function SessionView() {
       <div className='min-h-screen flex items-center justify-center bg-gray-50'>
         <div className='text-center'>
           <p className='text-red-500 mb-4'>{error}</p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className='text-blue-500 hover:underline'
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gray-50'>
+        <div className='text-center'>
+          <p className='text-red-500 mb-4'>Session not found</p>
           <button
             onClick={() => navigate("/dashboard")}
             className='text-blue-500 hover:underline'
@@ -256,7 +308,7 @@ function SessionView() {
                 Code: <span className='font-medium'>{session?.code}</span>
               </div>
               <div className='bg-gray-100 px-3 py-1 rounded-full text-sm'>
-                go to xyz.com
+                {`${window.location.origin}/join`}
               </div>
               {/* Fullscreen Button */}
               <button
@@ -319,7 +371,18 @@ function SessionView() {
               </div>
               <div>
                 <h3 className='text-sm font-medium text-gray-500 mb-2'>
-                  Responses
+                  Total Responses
+                </h3>
+                <p className='text-3xl font-bold text-gray-900'>
+                  {Object.values(responseFrequencies).reduce(
+                    (a, b) => a + b,
+                    0
+                  )}
+                </p>
+              </div>
+              <div>
+                <h3 className='text-sm font-medium text-gray-500 mb-2'>
+                  Unique Responses
                 </h3>
                 <p className='text-3xl font-bold text-gray-900'>
                   {responses.length}
@@ -338,7 +401,10 @@ function SessionView() {
                 <div
                   key={response.id}
                   style={response.style}
-                  className='absolute inline-block text-gray-900 hover:text-blue-600 transition-colors duration-200'
+                  className='absolute inline-block text-gray-900 hover:text-blue-600 transition-colors duration-200 capitalize'
+                  title={`${response.frequency} ${
+                    response.frequency === 1 ? "response" : "responses"
+                  }`}
                 >
                   {response.text}
                 </div>

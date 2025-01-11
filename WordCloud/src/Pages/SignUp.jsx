@@ -48,6 +48,109 @@ function SignUp() {
 
   return (
     <div className='min-h-screen flex flex-col items-center justify-center px-4'>
+      {/* Join Session Tab */}
+      <div
+        onClick={() => navigate("/join")}
+        className='group relative cursor-pointer mb-8 overflow-hidden'
+      >
+        <div
+          className='relative z-10 bg-white px-8 py-4 rounded-xl border-2 border-transparent
+          shadow-[0_8px_25px_rgba(0,0,0,0.05)]
+          hover:shadow-[0_20px_35px_rgba(0,0,0,0.1)]
+          transition-all duration-500 ease-out
+          hover:border-blue-500/20
+          transform hover:-translate-y-1'
+        >
+          <div className='flex items-center gap-3'>
+            {/* Animated Background Gradient */}
+            <div
+              className='absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-pink-500/5 
+              opacity-0 group-hover:opacity-100 transition-opacity duration-500
+              animate-gradient-xy'
+            />
+
+            {/* Group Icon with Pulse Effect */}
+            <div className='relative'>
+              <div className='absolute inset-0 bg-blue-400/20 rounded-full animate-ping group-hover:animation-delay-75' />
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                className='h-6 w-6 text-blue-500 transform group-hover:scale-110 transition-transform duration-300'
+                fill='none'
+                viewBox='0 0 24 24'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z'
+                />
+              </svg>
+            </div>
+
+            {/* Text with Gradient Effect */}
+            <span
+              className='text-gray-600 font-semibold text-lg
+              group-hover:text-transparent group-hover:bg-clip-text
+              group-hover:bg-gradient-to-r group-hover:from-blue-500 group-hover:to-purple-500
+              transition-all duration-300'
+            >
+              Have a code? Join Session
+            </span>
+
+            {/* Animated Arrow */}
+            <div className='relative'>
+              <svg
+                xmlns='http://www.w3.org/2000/svg'
+                className='h-5 w-5 text-gray-400 transform 
+                  group-hover:text-blue-500 group-hover:translate-x-1 
+                  transition-all duration-300 ease-out'
+                fill='none'
+                viewBox='0 0 24 24'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M9 5l7 7-7 7'
+                />
+              </svg>
+              <div
+                className='absolute inset-0 transform translate-x-2 opacity-0 
+                group-hover:opacity-100 group-hover:translate-x-3
+                transition-all duration-300 ease-out'
+              >
+                <svg
+                  xmlns='http://www.w3.org/2000/svg'
+                  className='h-5 w-5 text-purple-500'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  stroke='currentColor'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M9 5l7 7-7 7'
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Sparkles Effect */}
+          <div
+            className='absolute top-1/2 left-0 -translate-y-1/2 w-2 h-2 bg-blue-400 rounded-full
+            opacity-0 group-hover:opacity-100 group-hover:animate-sparkle-1'
+          />
+          <div
+            className='absolute top-1/2 right-0 -translate-y-1/2 w-2 h-2 bg-purple-400 rounded-full
+            opacity-0 group-hover:opacity-100 group-hover:animate-sparkle-2'
+          />
+        </div>
+      </div>
+
       {/* Logo */}
       <div className='w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center mb-6'>
         <svg

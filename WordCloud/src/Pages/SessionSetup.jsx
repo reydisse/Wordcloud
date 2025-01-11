@@ -1,7 +1,14 @@
+// src/pages/SessionSetup.jsx
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { auth, db } from "../config/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 function SessionSetup() {
   const navigate = useNavigate();
@@ -10,6 +17,7 @@ function SessionSetup() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
   const dropdownRef = useRef(null);
 
   // Check authentication status
@@ -18,7 +26,7 @@ function SessionSetup() {
       if (user) {
         setUser(user);
       } else {
-        navigate("/"); // Redirect to sign-in if not authenticated
+        navigate("/");
       }
     });
 
@@ -50,52 +58,85 @@ function SessionSetup() {
     }
   };
 
-  const handleStartSession = async () => {
-    if (!question.trim()) {
-      setError("Please enter a question");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Create a new session document
-      const sessionRef = await addDoc(collection(db, "sessions"), {
-        question: question.trim(),
-        userId: user.uid,
-        createdBy: user.displayName || user.email,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        code: generateSessionCode(),
-        isActive: true,
-        responseCount: 0,
-        metadata: {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-        },
-      });
-
-      // Create the responses subcollection (optional, will be created automatically when first response is added)
-      // const responsesCollectionRef = collection(sessionRef, 'responses')
-
-      navigate(`/dashboard/session/${sessionRef.id}`);
-    } catch (err) {
-      console.error("Error creating session:", err);
-      setError("Failed to create session");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Function to generate a random session code
   const generateSessionCode = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let code = "";
     for (let i = 0; i < 6; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return code;
+    return code.toUpperCase();
+  };
+
+  const handleStartSession = async () => {
+    if (!question.trim()) {
+      setError("Please enter a question");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const sessionCode = generateSessionCode();
+      console.log("Generated code:", sessionCode);
+
+      const sessionData = {
+        question: question.trim(),
+        userId: user.uid,
+        createdBy: user.displayName || user.email,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        code: sessionCode,
+        isActive: true,
+        responseCount: 0,
+        metadata: {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+        },
+      };
+
+      // Add retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      let sessionRef;
+
+      while (retryCount < maxRetries) {
+        try {
+          sessionRef = await addDoc(collection(db, "sessions"), sessionData);
+          break; // If successful, exit the retry loop
+        } catch (err) {
+          retryCount++;
+          if (retryCount === maxRetries) {
+            throw err; // If all retries failed, throw the error
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retrying
+        }
+      }
+
+      // Verify the session was created
+      const createdSessionDoc = await getDoc(
+        doc(db, "sessions", sessionRef.id)
+      );
+      if (!createdSessionDoc.exists()) {
+        throw new Error("Session creation verification failed");
+      }
+
+      console.log("Session created successfully:", {
+        id: sessionRef.id,
+        code: sessionCode,
+      });
+
+      // Show success message before navigation
+      setSuccess(true);
+      setTimeout(() => {
+        navigate(`/dashboard/session/${sessionRef.id}`);
+      }, 1000);
+    } catch (err) {
+      console.error("Error creating session:", err);
+      setError("Failed to create session. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // If user is not loaded yet, show loading state
@@ -161,90 +202,49 @@ function SessionSetup() {
               </span>
             </div>
 
-            {/* Right side with settings and profile */}
-            <div className='flex items-center space-x-4'>
-              {/* Settings Button */}
-              <button className='text-gray-700 hover:text-gray-900'>
-                <svg
-                  className='w-6 h-6'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'
+            {/* User Profile Section */}
+            <div className='relative' ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className='flex items-center focus:outline-none'
+              >
+                {user?.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt='Profile'
+                    className='w-8 h-8 rounded-full object-cover border border-gray-200'
+                    referrerPolicy='no-referrer'
                   />
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-                  />
-                </svg>
-              </button>
-
-              {/* User Profile Section */}
-              <div className='relative' ref={dropdownRef}>
-                <button
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className='flex items-center focus:outline-none'
-                >
-                  {user?.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt='Profile'
-                      className='w-8 h-8 rounded-full object-cover border border-gray-200'
-                    />
-                  ) : user ? (
-                    <div className='w-8 h-8 bg-[#1a2b3b] rounded-full flex items-center justify-center'>
-                      <span className='text-white text-sm font-medium'>
-                        {user.displayName
-                          ? user.displayName.charAt(0).toUpperCase()
-                          : user.email.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className='w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center'>
-                      <svg
-                        className='w-5 h-5 text-gray-500'
-                        fill='none'
-                        stroke='currentColor'
-                        viewBox='0 0 24 24'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth='2'
-                          d='M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </button>
-
-                {/* Dropdown Menu */}
-                {isDropdownOpen && (
-                  <div className='absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10'>
-                    {user && (
-                      <div className='px-4 py-2 border-b border-gray-100'>
-                        <p className='text-sm font-medium text-gray-900'>
-                          {user.displayName}
-                        </p>
-                        <p className='text-sm text-gray-500'>{user.email}</p>
-                      </div>
-                    )}
-                    <button
-                      onClick={handleSignOut}
-                      className='w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors'
-                    >
-                      Sign out
-                    </button>
+                ) : (
+                  <div className='w-8 h-8 bg-[#1a2b3b] rounded-full flex items-center justify-center'>
+                    <span className='text-white text-sm font-medium'>
+                      {user.displayName
+                        ? user.displayName.charAt(0).toUpperCase()
+                        : user.email.charAt(0).toUpperCase()}
+                    </span>
                   </div>
                 )}
-              </div>
+              </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className='absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10'>
+                  {user && (
+                    <div className='px-4 py-2 border-b border-gray-100'>
+                      <p className='text-sm font-medium text-gray-900'>
+                        {user.displayName}
+                      </p>
+                      <p className='text-sm text-gray-500'>{user.email}</p>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleSignOut}
+                    className='w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors'
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -306,6 +306,34 @@ function SessionSetup() {
           </button>
         </div>
       </main>
+
+      {/* Success Message */}
+      {success && (
+        <div className='fixed bottom-0 left-0 right-0 p-4'>
+          <div className='max-w-md mx-auto'>
+            <div className='bg-green-50 border border-green-200 rounded-lg shadow-sm p-4 flex items-center justify-between'>
+              <div className='flex items-center'>
+                <svg
+                  className='w-5 h-5 text-green-500 mr-3'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth='2'
+                    d='M5 13l4 4L19 7'
+                  />
+                </svg>
+                <span className='text-green-700'>
+                  Session created successfully!
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
