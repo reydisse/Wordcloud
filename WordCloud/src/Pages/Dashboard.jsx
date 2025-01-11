@@ -197,6 +197,7 @@ function Dashboard() {
                     src={user.photoURL}
                     alt='Profile'
                     className='w-8 h-8 rounded-full object-cover border border-gray-200'
+                    referrerPolicy='no-referrer'
                   />
                 ) : user ? (
                   <div className='w-8 h-8 bg-[#1a2b3b] rounded-full flex items-center justify-center'>

@@ -9,6 +9,7 @@ function JoinSession() {
   const [sessionCode, setSessionCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleJoinSession = async () => {
     if (!sessionCode.trim()) {
@@ -19,21 +20,30 @@ function JoinSession() {
     setLoading(true);
 
     try {
+      const uppercaseCode = sessionCode.trim().toUpperCase();
+      console.log("Checking session:", uppercaseCode);
+
       const sessionsRef = collection(db, "sessions");
-      const q = query(
-        sessionsRef,
-        where("code", "==", sessionCode.toUpperCase()),
-        where("isActive", "==", true)
-      );
+      const q = query(sessionsRef, where("code", "==", uppercaseCode));
 
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
+        setError("Invalid session code");
         setShowError(true);
         return;
       }
 
       const sessionDoc = querySnapshot.docs[0];
+      const sessionData = sessionDoc.data();
+
+      // Check session status and provide appropriate message
+      if (!sessionData.isActive) {
+        setError("This session has ended");
+        setShowError(true);
+        return;
+      }
+
       navigate(`/participate/${sessionDoc.id}`);
     } catch (err) {
       console.error("Error joining session:", err);
@@ -65,11 +75,14 @@ function JoinSession() {
           </div>
 
           {/* Error Message */}
+          {/* // In the error state JSX */}
           <h2 className='text-xl font-semibold text-gray-900 mb-2'>
-            Oops! Invalid code
+            {error || "Oops! Invalid code"}
           </h2>
           <p className='text-gray-500 text-sm mb-6'>
-            Check the code and try again
+            {error === "This session has ended"
+              ? "This session is no longer accepting responses"
+              : "Check the code and try again"}
           </p>
 
           {/* Input Field */}
