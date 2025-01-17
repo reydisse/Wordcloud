@@ -308,7 +308,8 @@ function SessionView() {
                 Code: <span className='font-medium'>{session?.code}</span>
               </div>
               <div className='bg-gray-100 px-3 py-1 rounded-full text-sm'>
-                {`${window.location.origin}/join`}
+                {/* {`${window.location.origin}/join`} */}
+                presento.ca
               </div>
               {/* Fullscreen Button */}
               <button
