@@ -14,7 +14,7 @@ const navigation = [
   { name: "Enterprise", href: "/#enterprise" },
 ];
 
-export default function Navbar() {
+function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -123,3 +123,5 @@ export default function Navbar() {
     </header>
   );
 }
+
+export default Navbar;

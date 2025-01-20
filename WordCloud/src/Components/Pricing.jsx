@@ -10,7 +10,7 @@ const features = [
   "API access",
 ];
 
-export default function Pricing() {
+function Pricing() {
   return (
     <div id='pricing' className='py-24 bg-white'>
       <div className='mx-auto max-w-7xl px-6 lg:px-8'>
@@ -80,3 +80,5 @@ export default function Pricing() {
     </div>
   );
 }
+
+export default Pricing;

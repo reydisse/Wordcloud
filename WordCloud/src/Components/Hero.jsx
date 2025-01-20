@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { db } from "../config/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
-export default function Hero() {
+function Hero() {
   const [sessionCode, setSessionCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -185,3 +185,5 @@ export default function Hero() {
     </div>
   );
 }
+
+export default Hero;
