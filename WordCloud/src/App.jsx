@@ -1,12 +1,12 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // Landing page components
 import Navbar from "./Components/Navbar";
-import Hero from "./components/Hero";
-import Solutions from "./components/Solutions";
-import Features from "./components/Features";
-import HowItWorks from "./components/HowItWorks";
-import Pricing from "./components/Pricing";
-import Footer from "./components/Footer";
+import Hero from "./Components/Hero";
+import Solutions from "./Components/Solutions";
+import Features from "./Components/Features";
+import HowItWorks from "./Components/HowItWorks";
+import Pricing from "./Components/Pricing";
+import Footer from "./Components/Footer";
 // Dashboard and session components
 import SignUp from "./Pages/SignUp";
 import Dashboard from "./Pages/Dashboard";
