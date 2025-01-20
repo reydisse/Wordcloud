@@ -89,87 +89,50 @@ function SessionView() {
   };
 
   const generateWordCloudStyles = useCallback(() => {
-    const occupiedSpaces = []; // Changed to array for easier management
-    const padding = 20; // Increased padding between words
+    let usedCells = new Set();
+
+    // Define grid dimensions
+    const gridCols = 6; // Increased for better distribution
+    const gridRows = 4; // Adjusted for typical screen aspect ratio
+    const padding = 10; // Padding from edges in percentage
 
     const findAvailableSpace = (text, size) => {
-      // Increase the multiplier for wider text boxes
-      const approxWidth = text.length * (size * 0.8);
-      const approxHeight = size * 1.5; // Increased height multiplier
+      // Calculate cell dimensions
+      const cellWidth = (100 - 2 * padding) / gridCols;
+      const cellHeight = (100 - 2 * padding) / gridRows;
 
-      // Grid-like positioning with more attempts
-      for (let attempts = 0; attempts < 100; attempts++) {
-        // Adjusted random position generation
-        const top = Math.floor(Math.random() * 60) + 20; // More centered vertically
-        const left = Math.floor(Math.random() * 60) + 20; // More centered horizontally
-
-        const rectangle = {
-          top: top - padding,
-          bottom: top + approxHeight + padding,
-          left: left - padding,
-          right: left + approxWidth + padding,
-        };
-
-        // Check overlap with existing words
-        let hasOverlap = occupiedSpaces.some(
-          (occupied) =>
-            !(
-              rectangle.left > occupied.right + padding ||
-              rectangle.right < occupied.left - padding ||
-              rectangle.top > occupied.bottom + padding ||
-              rectangle.bottom < occupied.top - padding
-            )
-        );
-
-        if (!hasOverlap) {
-          occupiedSpaces.push(rectangle);
-          return { top, left };
-        }
-      }
-
-      // If no space found, try to find the least crowded area
-      let bestPosition = { top: 50, left: 50 };
-      let minOverlaps = Infinity;
-
-      for (let top = 10; top <= 90; top += 10) {
-        for (let left = 10; left <= 90; left += 10) {
-          const rectangle = {
-            top: top - padding,
-            bottom: top + approxHeight + padding,
-            left: left - padding,
-            right: left + approxWidth + padding,
-          };
-
-          const overlaps = occupiedSpaces.filter(
-            (occupied) =>
-              !(
-                rectangle.left > occupied.right + padding ||
-                rectangle.right < occupied.left - padding ||
-                rectangle.top > occupied.bottom + padding ||
-                rectangle.bottom < occupied.top - padding
-              )
-          ).length;
-
-          if (overlaps < minOverlaps) {
-            minOverlaps = overlaps;
-            bestPosition = { top, left };
+      // Get all possible grid positions
+      const positions = [];
+      for (let row = 0; row < gridRows; row++) {
+        for (let col = 0; col < gridCols; col++) {
+          const cellKey = `${row}-${col}`;
+          if (!usedCells.has(cellKey)) {
+            positions.push({
+              top: padding + row * cellHeight + cellHeight / 2,
+              left: padding + col * cellWidth + cellWidth / 2,
+              cellKey,
+            });
           }
         }
       }
 
-      occupiedSpaces.push({
-        top: bestPosition.top - padding,
-        bottom: bestPosition.top + approxHeight + padding,
-        left: bestPosition.left - padding,
-        right: bestPosition.left + approxWidth + padding,
-      });
+      // If all positions are used, reset the grid
+      if (positions.length === 0) {
+        usedCells.clear();
+        return findAvailableSpace(text, size); // Recursively try again
+      }
 
-      return bestPosition;
+      // Pick a random available position
+      const position = positions[Math.floor(Math.random() * positions.length)];
+      usedCells.add(position.cellKey);
+
+      return position;
     };
 
     return (text, size, frequency) => {
-      const opacity = Math.min(0.4 + frequency * 0.1, 1);
       const { top, left } = findAvailableSpace(text, size);
+      const opacity = Math.min(0.4 + frequency * 0.1, 1);
+      const rotation = Math.random() * 20 - 10; // Random rotation between -10 and 10 degrees
 
       return {
         position: "absolute",
@@ -178,17 +141,74 @@ function SessionView() {
         fontSize: `${size}px`,
         opacity: opacity,
         fontWeight: Math.min(400 + frequency * 100, 700),
-        transform: `rotate(${Math.random() * 10 - 5}deg)`, // Reduced rotation for better readability
+        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
         transition: "all 0.5s ease-in-out",
         cursor: "default",
         textShadow: "1px 1px 2px rgba(0,0,0,0.1)",
         zIndex: Math.floor(frequency * 10),
         whiteSpace: "nowrap",
         padding: "5px",
-        pointerEvents: "none", // Prevents text selection
+        pointerEvents: "none",
+        userSelect: "none",
+        maxWidth: "90%", // Prevent text from being too wide
+        overflow: "hidden",
+        textOverflow: "ellipsis",
       };
     };
   }, []);
+
+  // Modify the responses effect to reset the word cloud when responses change
+  useEffect(() => {
+    if (!id) return;
+
+    const responsesRef = collection(doc(db, "sessions", id), "responses");
+    const responsesQuery = query(responsesRef, orderBy("createdAt", "desc"));
+
+    const styleGenerator = generateWordCloudStyles();
+
+    const unsubscribe = onSnapshot(
+      responsesQuery,
+      (snapshot) => {
+        // Calculate frequencies
+        const frequencies = {};
+        snapshot.docs.forEach((doc) => {
+          const text = doc.data().text.trim().toLowerCase();
+          frequencies[text] = (frequencies[text] || 0) + 1;
+        });
+
+        setResponseFrequencies(frequencies);
+
+        // Sort responses by frequency to place more frequent words first
+        const sortedResponses = Object.entries(frequencies)
+          .sort(([, a], [, b]) => b - a)
+          .map(([text, frequency]) => {
+            const size = calculateSize(frequency);
+            return {
+              id: text,
+              text: text,
+              frequency: frequency,
+              style: styleGenerator(text, size, frequency),
+            };
+          });
+
+        setResponses(sortedResponses);
+
+        // Track unique participant IDs
+        const uniqueParticipants = new Set(
+          snapshot.docs.map((doc) => doc.data().participantId)
+        );
+        setParticipants(uniqueParticipants);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Error in responses listener:", err);
+        setError("Failed to load responses");
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [id, generateWordCloudStyles]);
 
   // End session handler
   // End session handler
@@ -484,32 +504,36 @@ function SessionView() {
           {/* Word Cloud Area */}
           <div className='flex-1'>
             <div
-              className='bg-white rounded-lg shadow-sm p-8 relative'
+              className='bg-white rounded-lg shadow-sm relative overflow-hidden'
               style={{ height: "calc(100vh - 180px)" }}
             >
-              {responses.map((response) => (
-                <div
-                  key={response.id}
-                  style={response.style}
-                  className='absolute inline-block text-gray-900 hover:text-blue-600 transition-colors duration-200 capitalize'
-                  title={`${response.frequency} ${
-                    response.frequency === 1 ? "response" : "responses"
-                  }`}
-                >
-                  {response.text}
-                </div>
-              ))}
+              <div className='absolute inset-0 p-8'>
+                <div className='relative w-full h-full'>
+                  {responses.map((response) => (
+                    <div
+                      key={response.id}
+                      style={response.style}
+                      className='absolute inline-block text-gray-900 hover:text-blue-600 transition-colors duration-200 capitalize'
+                      title={`${response.frequency} ${
+                        response.frequency === 1 ? "response" : "responses"
+                      }`}
+                    >
+                      {response.text}
+                    </div>
+                  ))}
 
-              {responses.length === 0 && (
-                <div className='h-full flex items-center justify-center text-gray-500'>
-                  <div className='text-center'>
-                    <p className='text-xl mb-2'>Waiting for responses...</p>
-                    <p className='text-sm'>
-                      Share the code with participants to get started
-                    </p>
-                  </div>
+                  {responses.length === 0 && (
+                    <div className='absolute inset-0 flex items-center justify-center text-gray-500'>
+                      <div className='text-center'>
+                        <p className='text-xl mb-2'>Waiting for responses...</p>
+                        <p className='text-sm'>
+                          Share the code with participants to get started
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
