@@ -89,43 +89,82 @@ function SessionView() {
   };
 
   const generateWordCloudStyles = useCallback(() => {
-    const occupiedSpaces = new Set();
+    const occupiedSpaces = []; // Changed to array for easier management
+    const padding = 20; // Increased padding between words
 
     const findAvailableSpace = (text, size) => {
-      const approxWidth = text.length * (size * 0.6);
-      const approxHeight = size * 1.2;
+      // Increase the multiplier for wider text boxes
+      const approxWidth = text.length * (size * 0.8);
+      const approxHeight = size * 1.5; // Increased height multiplier
 
-      for (let attempts = 0; attempts < 50; attempts++) {
-        const top = Math.floor(Math.random() * 70) + 15;
-        const left = Math.floor(Math.random() * 70) + 15;
+      // Grid-like positioning with more attempts
+      for (let attempts = 0; attempts < 100; attempts++) {
+        // Adjusted random position generation
+        const top = Math.floor(Math.random() * 60) + 20; // More centered vertically
+        const left = Math.floor(Math.random() * 60) + 20; // More centered horizontally
 
         const rectangle = {
-          top: top - 5,
-          bottom: top + approxHeight + 5,
-          left: left - 5,
-          right: left + approxWidth + 5,
+          top: top - padding,
+          bottom: top + approxHeight + padding,
+          left: left - padding,
+          right: left + approxWidth + padding,
         };
 
-        let hasOverlap = false;
-        for (const occupied of occupiedSpaces) {
-          if (
-            rectangle.left < occupied.right &&
-            rectangle.right > occupied.left &&
-            rectangle.top < occupied.bottom &&
-            rectangle.bottom > occupied.top
-          ) {
-            hasOverlap = true;
-            break;
-          }
-        }
+        // Check overlap with existing words
+        let hasOverlap = occupiedSpaces.some(
+          (occupied) =>
+            !(
+              rectangle.left > occupied.right + padding ||
+              rectangle.right < occupied.left - padding ||
+              rectangle.top > occupied.bottom + padding ||
+              rectangle.bottom < occupied.top - padding
+            )
+        );
 
         if (!hasOverlap) {
-          occupiedSpaces.add(rectangle);
+          occupiedSpaces.push(rectangle);
           return { top, left };
         }
       }
 
-      return { top: 50, left: 50 };
+      // If no space found, try to find the least crowded area
+      let bestPosition = { top: 50, left: 50 };
+      let minOverlaps = Infinity;
+
+      for (let top = 10; top <= 90; top += 10) {
+        for (let left = 10; left <= 90; left += 10) {
+          const rectangle = {
+            top: top - padding,
+            bottom: top + approxHeight + padding,
+            left: left - padding,
+            right: left + approxWidth + padding,
+          };
+
+          const overlaps = occupiedSpaces.filter(
+            (occupied) =>
+              !(
+                rectangle.left > occupied.right + padding ||
+                rectangle.right < occupied.left - padding ||
+                rectangle.top > occupied.bottom + padding ||
+                rectangle.bottom < occupied.top - padding
+              )
+          ).length;
+
+          if (overlaps < minOverlaps) {
+            minOverlaps = overlaps;
+            bestPosition = { top, left };
+          }
+        }
+      }
+
+      occupiedSpaces.push({
+        top: bestPosition.top - padding,
+        bottom: bestPosition.top + approxHeight + padding,
+        left: bestPosition.left - padding,
+        right: bestPosition.left + approxWidth + padding,
+      });
+
+      return bestPosition;
     };
 
     return (text, size, frequency) => {
@@ -139,13 +178,14 @@ function SessionView() {
         fontSize: `${size}px`,
         opacity: opacity,
         fontWeight: Math.min(400 + frequency * 100, 700),
-        transform: `rotate(${Math.random() * 20 - 10}deg)`,
+        transform: `rotate(${Math.random() * 10 - 5}deg)`, // Reduced rotation for better readability
         transition: "all 0.5s ease-in-out",
         cursor: "default",
         textShadow: "1px 1px 2px rgba(0,0,0,0.1)",
         zIndex: Math.floor(frequency * 10),
         whiteSpace: "nowrap",
         padding: "5px",
+        pointerEvents: "none", // Prevents text selection
       };
     };
   }, []);
