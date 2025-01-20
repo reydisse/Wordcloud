@@ -194,7 +194,7 @@ function JoinSession() {
             type='text'
             value={sessionCode}
             onChange={(e) => setSessionCode(e.target.value.toUpperCase())}
-            placeholder='ENTER SESSION'
+            placeholder='ENTER SESSION CODE'
             className='w-full px-4 py-3 text-center text-gray-700 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase tracking-wider'
             maxLength={6}
           />

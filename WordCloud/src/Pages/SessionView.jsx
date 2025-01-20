@@ -1,4 +1,3 @@
-// src/pages/SessionView.jsx
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { db } from "../config/firebase";
@@ -89,27 +88,69 @@ function SessionView() {
     return Math.min(baseSize + frequency * increment, maxSize);
   };
 
-  // Generate word cloud styles
-  const generateWordCloudStyles = useCallback((text, size, frequency) => {
-    const opacity = Math.min(0.4 + frequency * 0.1, 1);
-    const top = Math.floor(Math.random() * 70) + 15;
-    const left = Math.floor(Math.random() * 70) + 15;
+  const generateWordCloudStyles = useCallback(() => {
+    const occupiedSpaces = new Set();
 
-    return {
-      position: "absolute",
-      top: `${top}%`,
-      left: `${left}%`,
-      fontSize: `${size}px`,
-      opacity: opacity,
-      fontWeight: Math.min(400 + frequency * 100, 700),
-      transform: `rotate(${Math.random() * 20 - 10}deg)`,
-      transition: "all 0.5s ease-in-out",
-      cursor: "default",
-      textShadow: "1px 1px 2px rgba(0,0,0,0.1)",
-      zIndex: Math.floor(frequency * 10),
+    const findAvailableSpace = (text, size) => {
+      const approxWidth = text.length * (size * 0.6);
+      const approxHeight = size * 1.2;
+
+      for (let attempts = 0; attempts < 50; attempts++) {
+        const top = Math.floor(Math.random() * 70) + 15;
+        const left = Math.floor(Math.random() * 70) + 15;
+
+        const rectangle = {
+          top: top - 5,
+          bottom: top + approxHeight + 5,
+          left: left - 5,
+          right: left + approxWidth + 5,
+        };
+
+        let hasOverlap = false;
+        for (const occupied of occupiedSpaces) {
+          if (
+            rectangle.left < occupied.right &&
+            rectangle.right > occupied.left &&
+            rectangle.top < occupied.bottom &&
+            rectangle.bottom > occupied.top
+          ) {
+            hasOverlap = true;
+            break;
+          }
+        }
+
+        if (!hasOverlap) {
+          occupiedSpaces.add(rectangle);
+          return { top, left };
+        }
+      }
+
+      return { top: 50, left: 50 };
+    };
+
+    return (text, size, frequency) => {
+      const opacity = Math.min(0.4 + frequency * 0.1, 1);
+      const { top, left } = findAvailableSpace(text, size);
+
+      return {
+        position: "absolute",
+        top: `${top}%`,
+        left: `${left}%`,
+        fontSize: `${size}px`,
+        opacity: opacity,
+        fontWeight: Math.min(400 + frequency * 100, 700),
+        transform: `rotate(${Math.random() * 20 - 10}deg)`,
+        transition: "all 0.5s ease-in-out",
+        cursor: "default",
+        textShadow: "1px 1px 2px rgba(0,0,0,0.1)",
+        zIndex: Math.floor(frequency * 10),
+        whiteSpace: "nowrap",
+        padding: "5px",
+      };
     };
   }, []);
 
+  // End session handler
   // End session handler
   const handleEndSession = async () => {
     setIsEnding(true);
@@ -159,6 +200,8 @@ function SessionView() {
     const responsesRef = collection(doc(db, "sessions", id), "responses");
     const responsesQuery = query(responsesRef, orderBy("createdAt", "desc"));
 
+    const styleGenerator = generateWordCloudStyles();
+
     const unsubscribe = onSnapshot(
       responsesQuery,
       (snapshot) => {
@@ -179,7 +222,7 @@ function SessionView() {
               id: text,
               text: text,
               frequency: frequency,
-              style: generateWordCloudStyles(text, size, frequency),
+              style: styleGenerator(text, size, frequency),
             };
           }
         );
@@ -304,11 +347,17 @@ function SessionView() {
 
             {/* Right side */}
             <div className='flex items-center space-x-6'>
-              <div className='text-sm text-gray-500'>
-                Code: <span className='font-medium'>{session?.code}</span>
+              <div className='text-lg'>
+                <span className='text-gray-600 font-medium'>Code: </span>
+                <span
+                  className='text-xl font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-md border border-blue-200 ml-2'
+                  style={{ textTransform: "uppercase" }}
+                >
+                  {session?.code}
+                </span>
               </div>
+
               <div className='bg-gray-100 px-3 py-1 rounded-full text-sm'>
-                {/* {`${window.location.origin}/join`} */}
                 presento.ca
               </div>
               {/* Fullscreen Button */}
