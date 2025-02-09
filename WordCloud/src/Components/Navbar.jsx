@@ -1,3 +1,4 @@
+// src/components/Navbar.js
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -5,6 +6,7 @@ import {
   XMarkIcon,
   PresentationChartBarIcon,
 } from "@heroicons/react/24/outline";
+import { useAuth } from "../hooks/useAuth";
 
 const navigation = [
   { name: "Product", href: "/#product" },
@@ -16,6 +18,7 @@ const navigation = [
 
 function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, loading, error, handleGoogleSignIn } = useAuth();
 
   return (
     <header className='fixed w-full bg-white shadow-sm z-50'>
@@ -54,20 +57,37 @@ function Navbar() {
           ))}
         </div>
         <div className='hidden lg:flex lg:flex-1 lg:justify-end lg:items-center'>
-          <Link
-            to='/auth'
-            className='text-sm font-semibold leading-6 text-gray-900 hover:text-blue-600 mr-4'
-          >
-            Log in
-          </Link>
-          <Link
-            to='/auth'
-            className='rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors'
-          >
-            Get Started Free
-          </Link>
+          {user ? (
+            <div className='flex items-center gap-4'>
+              <span className='text-sm text-gray-700'>{user.displayName}</span>
+              <Link
+                to='/dashboard'
+                className='rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors'
+              >
+                Dashboard
+              </Link>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className='text-sm font-semibold leading-6 text-gray-900 hover:text-blue-600 mr-4 disabled:opacity-50'
+              >
+                Log in
+              </button>
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                className='rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors disabled:opacity-50'
+              >
+                {loading ? "Loading..." : "Get Started Free"}
+              </button>
+            </>
+          )}
         </div>
       </nav>
+
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className='lg:hidden'>
@@ -102,21 +122,48 @@ function Navbar() {
                   ))}
                 </div>
                 <div className='py-6'>
-                  <Link
-                    to='/auth'
-                    className='-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50'
-                  >
-                    Log in
-                  </Link>
-                  <Link
-                    to='/auth'
-                    className='mt-2 -mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-white bg-blue-600 hover:bg-blue-500'
-                  >
-                    Get Started Free
-                  </Link>
+                  {user ? (
+                    <>
+                      <span className='block px-3 py-2.5 text-base font-semibold text-gray-900'>
+                        {user.displayName}
+                      </span>
+                      <Link
+                        to='/dashboard'
+                        className='mt-2 -mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-white bg-blue-600 hover:bg-blue-500'
+                      >
+                        Dashboard
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleGoogleSignIn}
+                        disabled={loading}
+                        className='-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50 w-full text-left disabled:opacity-50'
+                      >
+                        Log in
+                      </button>
+                      <button
+                        onClick={handleGoogleSignIn}
+                        disabled={loading}
+                        className='mt-2 -mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-white bg-blue-600 hover:bg-blue-500 w-full text-left disabled:opacity-50'
+                      >
+                        {loading ? "Loading..." : "Get Started Free"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error message */}
+      {error && (
+        <div className='max-w-7xl mx-auto px-4 py-2'>
+          <div className='bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3'>
+            {error}
           </div>
         </div>
       )}

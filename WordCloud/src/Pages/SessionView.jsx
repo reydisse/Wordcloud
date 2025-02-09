@@ -12,6 +12,26 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 
+// Color palette for the word cloud
+const colorPalette = [
+  "#E63946", // deep red
+  "#1D3557", // navy blue
+  "#2A9D8F", // deep teal
+  "#6A994E", // forest green
+  "#BC6C25", // burnt orange
+  "#7209B7", // rich purple
+  "#3D405B", // slate blue
+  "#9B2226", // burgundy
+  "#4361EE", // royal blue
+  "#2B9348", // emerald green
+  "#DA627D", // deep rose
+  "#5F0F40", // wine
+  "#386641", // hunter green
+  "#073B4C", // dark teal
+  "#540B0E", // maroon
+  "#4C1C80", // deep violet
+];
+
 // Styles for animations
 const endingStyles = `
   @keyframes fadeOut {
@@ -52,6 +72,14 @@ function SessionView() {
   const [isEnding, setIsEnding] = useState(false);
   const [responseFrequencies, setResponseFrequencies] = useState({});
 
+  // Function to calculate size based on frequency
+  const calculateSize = (frequency) => {
+    const baseSize = 16;
+    const increment = 4;
+    const maxSize = 48;
+    return Math.min(baseSize + frequency * increment, maxSize);
+  };
+
   // Fullscreen handler
   const toggleFullscreen = () => {
     try {
@@ -80,21 +108,21 @@ function SessionView() {
     };
   }, []);
 
-  // Function to calculate size based on frequency
-  const calculateSize = (frequency) => {
-    const baseSize = 16;
-    const increment = 4;
-    const maxSize = 48;
-    return Math.min(baseSize + frequency * increment, maxSize);
-  };
-
   const generateWordCloudStyles = useCallback(() => {
     let usedCells = new Set();
+    let colorIndex = 0;
+
+    // Function to get next color
+    const getNextColor = () => {
+      const color = colorPalette[colorIndex];
+      colorIndex = (colorIndex + 1) % colorPalette.length;
+      return color;
+    };
 
     // Define grid dimensions
-    const gridCols = 6; // Increased for better distribution
-    const gridRows = 4; // Adjusted for typical screen aspect ratio
-    const padding = 10; // Padding from edges in percentage
+    const gridCols = 6;
+    const gridRows = 4;
+    const padding = 10;
 
     const findAvailableSpace = (text, size) => {
       // Calculate cell dimensions
@@ -119,7 +147,7 @@ function SessionView() {
       // If all positions are used, reset the grid
       if (positions.length === 0) {
         usedCells.clear();
-        return findAvailableSpace(text, size); // Recursively try again
+        return findAvailableSpace(text, size);
       }
 
       // Pick a random available position
@@ -132,7 +160,8 @@ function SessionView() {
     return (text, size, frequency) => {
       const { top, left } = findAvailableSpace(text, size);
       const opacity = Math.min(0.4 + frequency * 0.1, 1);
-      const rotation = Math.random() * 20 - 10; // Random rotation between -10 and 10 degrees
+      const rotation = Math.random() * 20 - 10;
+      const color = getNextColor();
 
       return {
         position: "absolute",
@@ -140,24 +169,25 @@ function SessionView() {
         left: `${left}%`,
         fontSize: `${size}px`,
         opacity: opacity,
+        color: color,
         fontWeight: Math.min(400 + frequency * 100, 700),
         transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
         transition: "all 0.5s ease-in-out",
         cursor: "default",
-        textShadow: "1px 1px 2px rgba(0,0,0,0.1)",
+        textShadow: `1px 1px 2px ${color}33`,
         zIndex: Math.floor(frequency * 10),
         whiteSpace: "nowrap",
         padding: "5px",
         pointerEvents: "none",
         userSelect: "none",
-        maxWidth: "90%", // Prevent text from being too wide
+        maxWidth: "90%",
         overflow: "hidden",
         textOverflow: "ellipsis",
       };
     };
   }, []);
 
-  // Modify the responses effect to reset the word cloud when responses change
+  // Effect for handling responses and word cloud updates
   useEffect(() => {
     if (!id) return;
 
@@ -211,7 +241,6 @@ function SessionView() {
   }, [id, generateWordCloudStyles]);
 
   // End session handler
-  // End session handler
   const handleEndSession = async () => {
     setIsEnding(true);
     try {
@@ -253,59 +282,7 @@ function SessionView() {
     fetchSession();
   }, [id]);
 
-  // Real-time responses listener
-  useEffect(() => {
-    if (!id) return;
-
-    const responsesRef = collection(doc(db, "sessions", id), "responses");
-    const responsesQuery = query(responsesRef, orderBy("createdAt", "desc"));
-
-    const styleGenerator = generateWordCloudStyles();
-
-    const unsubscribe = onSnapshot(
-      responsesQuery,
-      (snapshot) => {
-        // Calculate frequencies
-        const frequencies = {};
-        snapshot.docs.forEach((doc) => {
-          const text = doc.data().text.trim().toLowerCase();
-          frequencies[text] = (frequencies[text] || 0) + 1;
-        });
-
-        setResponseFrequencies(frequencies);
-
-        // Create unique responses with updated styles
-        const uniqueResponses = Object.entries(frequencies).map(
-          ([text, frequency]) => {
-            const size = calculateSize(frequency);
-            return {
-              id: text,
-              text: text,
-              frequency: frequency,
-              style: styleGenerator(text, size, frequency),
-            };
-          }
-        );
-
-        setResponses(uniqueResponses);
-
-        // Track unique participant IDs
-        const uniqueParticipants = new Set(
-          snapshot.docs.map((doc) => doc.data().participantId)
-        );
-        setParticipants(uniqueParticipants);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Error in responses listener:", err);
-        setError("Failed to load responses");
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [id, generateWordCloudStyles]);
-
+  // Loading state
   if (loading) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-gray-50'>
@@ -336,6 +313,7 @@ function SessionView() {
     );
   }
 
+  // Error state
   if (error) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-gray-50'>
@@ -352,6 +330,7 @@ function SessionView() {
     );
   }
 
+  // Session not found state
   if (!session) {
     return (
       <div className='min-h-screen flex items-center justify-center bg-gray-50'>
@@ -396,7 +375,7 @@ function SessionView() {
                     d='M10 19l-7-7m0 0l7-7m-7 7h18'
                   />
                 </svg>
-                <span>Back to Dashboard</span>
+                {/* <span>Back to Dashboard</span> */}
               </button>
 
               {/* Question */}
@@ -417,13 +396,18 @@ function SessionView() {
                 </span>
               </div>
 
-              <div className='bg-gray-100 px-3 py-1 rounded-full text-sm'>
+              {/* <div className='bg-gray-100 px-3 py-1 rounded-full text-sm'>
                 presento.ca
-              </div>
+              </div> */}
+
               {/* Fullscreen Button */}
               <button
                 onClick={toggleFullscreen}
-                className='flex items-center px-4 py-2 bg-[#1a2b3b] text-white rounded-lg hover:bg-[#2c3e50] transition-colors'
+                className={`flex items-center px-4 py-2 ${
+                  isFullscreen
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-[#1a2b3b] hover:bg-[#2c3e50]"
+                } text-white rounded-lg transition-colors`}
               >
                 {isFullscreen ? (
                   <svg
@@ -436,7 +420,7 @@ function SessionView() {
                       strokeLinecap='round'
                       strokeLinejoin='round'
                       strokeWidth='2'
-                      d='M9 9H4v5M20 9h-5v5M9 20H4v-5M20 20h-5v-5'
+                      d='M6 18L18 6M6 6l12 12'
                     />
                   </svg>
                 ) : (
@@ -460,7 +444,6 @@ function SessionView() {
           </div>
         </div>
       </nav>
-
       {/* Main Content */}
       <div
         className={`max-w-[90%] mx-auto px-4 py-8 ${
@@ -513,7 +496,7 @@ function SessionView() {
                     <div
                       key={response.id}
                       style={response.style}
-                      className='absolute inline-block text-gray-900 hover:text-blue-600 transition-colors duration-200 capitalize'
+                      className='absolute inline-block transition-all duration-200 capitalize hover:scale-110'
                       title={`${response.frequency} ${
                         response.frequency === 1 ? "response" : "responses"
                       }`}
@@ -538,7 +521,6 @@ function SessionView() {
           </div>
         </div>
       </div>
-
       {/* End Session Button */}
       <div className='fixed bottom-8 left-8'>
         <button

@@ -1,7 +1,9 @@
+// src/components/Hero.js
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { db } from "../config/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { useAuth } from "../hooks/useAuth";
 
 function Hero() {
   const [sessionCode, setSessionCode] = useState("");
@@ -9,6 +11,7 @@ function Hero() {
   const [error, setError] = useState(null);
   const [showError, setShowError] = useState(false);
   const navigate = useNavigate();
+  const { handleGoogleSignIn, loading: authLoading } = useAuth();
 
   const handleCodeSubmit = async () => {
     if (!sessionCode.trim()) {
@@ -157,12 +160,13 @@ function Hero() {
               Q&A, and word clouds.
             </p>
             <div className='mt-10 flex flex-col sm:flex-row items-center justify-center gap-x-6 gap-y-4'>
-              <Link
-                to='/auth'
-                className='rounded-md bg-blue-600 px-6 py-3 text-lg font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors'
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={authLoading}
+                className='rounded-md bg-blue-600 px-6 py-3 text-lg font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors disabled:opacity-50'
               >
-                Get Started for Free
-              </Link>
+                {authLoading ? "Loading..." : "Get Started for Free"}
+              </button>
               <span className='text-sm text-gray-600'>
                 No credit card required
               </span>
@@ -180,8 +184,6 @@ function Hero() {
           </div>
         </div>
       </div>
-
-      {/* Background elements or additional content can go here */}
     </div>
   );
 }
