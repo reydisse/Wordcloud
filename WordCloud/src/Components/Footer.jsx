@@ -94,7 +94,8 @@ function Footer() {
         </div>
         <p className='mt-10 text-center text-xs leading-5 text-gray-500'>
           &copy; {new Date().getFullYear()} Mapleverse Labs Canada. All rights
-          reserved.
+          reserved. <a herf="https://www.presento.ca/zohoverify/verifyforzoho.html"> Presento </a>a>
+
         </p>
       </div>
     </footer>
