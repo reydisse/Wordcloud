@@ -10,7 +10,7 @@ import { useAuth } from "../hooks/useAuth";
 
 const navigation = [
   { name: "Product", href: "/#product" },
-  { name: "Solutions", href: "/#solutions" },
+  { name: "Solutions", href: "https://www.presento.ca/zohoverify/verifyforzoho.html" },
   { name: "Pricing", href: "/#pricing" },
   { name: "Resources", href: "/#resources" },
   { name: "Enterprise", href: "/#enterprise" },
